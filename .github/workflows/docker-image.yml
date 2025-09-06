@@ -10,8 +10,9 @@ on:
     branches:
       - "test"
       - "beta"
+      - "master"
     tags:
-      - "v*.*.*"
+      - "*.*.*"
 
 jobs:
   build-and-push:
