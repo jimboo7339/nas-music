@@ -1,0 +1,68 @@
+# .github/workflows/docker-publish.yml
+name: Publish to Docker Hub
+
+# 触发条件：
+# 1. 当推送到 'test' 分支时
+# 2. 当推送到 'beta' 分支时
+# 3. 当创建 'v*.*.*' 格式的标签时
+on:
+  push:
+    branches:
+      - "test"
+      - "beta"
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build-and-push:
+    # 在最新的 Ubuntu 虚拟机上运行
+    runs-on: ubuntu-latest
+    steps:
+      # 步骤1: 检出代码，以便 workflow 可以访问它
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 步骤2: 准备 Docker 镜像标签
+      # 根据触发事件（分支或标签）动态生成镜像标签
+      - name: Prepare Docker tags
+        id: prep_tags
+        run: |
+          DOCKER_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/nas-music
+          # 如果是标签推送 (e.g., v1.2.3)
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            # 从 ref 中提取标签名 (e.g., v1.2.3)
+            TAG=${GITHUB_REF#refs/tags/}
+            # 设置输出: "user/repo:v1.2.3,user/repo:latest"
+            echo "tags=${DOCKER_IMAGE}:${TAG},${DOCKER_IMAGE}:latest" >> $GITHUB_OUTPUT
+          # 如果是推送到 test 分支
+          elif [[ $GITHUB_REF == refs/heads/test ]]; then
+            # 设置输出: "user/repo:test"
+            echo "tags=${DOCKER_IMAGE}:test" >> $GITHUB_OUTPUT
+          # 如果是推送到 beta 分支
+          elif [[ $GITHUB_REF == refs/heads/beta ]]; then
+            # 设置输出: "user/repo:beta"
+            echo "tags=${DOCKER_IMAGE}:beta" >> $GITHUB_OUTPUT
+          fi
+
+      # 步骤3: 设置 Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 步骤4: 登录到 Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 步骤5: 构建并推送 Docker 镜像
+      # 仅当上一步成功生成了标签时才运行此步骤
+      - name: Build and push Docker image
+        if: steps.prep_tags.outputs.tags
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.prep_tags.outputs.tags }}
