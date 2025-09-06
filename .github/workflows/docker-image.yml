@@ -4,13 +4,12 @@ name: Publish to Docker Hub
 # 触发条件：
 # 1. 当推送到 'test' 分支时
 # 2. 当推送到 'beta' 分支时
-# 3. 当创建 'v*.*.*' 格式的标签时
+# 3. 当创建 '*.*.*' 格式的标签时
 on:
   push:
     branches:
       - "test"
       - "beta"
-      - "master"
     tags:
       - "*.*.*"
 
